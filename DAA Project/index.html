@@ -1,0 +1,3297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Indian City Pathfinder v2 — DAA Project</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+      :root {
+        --bg: #0a0e1a;
+        --bg2: #111827;
+        --bg3: #1a2235;
+        --bg4: #0f1728;
+        --border: rgba(255, 255, 255, 0.07);
+        --border2: rgba(255, 255, 255, 0.14);
+        --text: #e8eaf2;
+        --text2: #8892a4;
+        --text3: #555f72;
+        --accent: #4f9eff;
+        --accent2: #7ec8ff;
+        --green: #34d399;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --purple: #a78bfa;
+        --pink: #f472b6;
+        --teal: #2dd4bf;
+        --city: #4f9eff;
+        --path-edge: #f87171;
+        --visited-edge: #7c6af5;
+        --node-path: #34d399;
+        --node-src: #fbbf24;
+        --frontier: #f472b6;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── HEADER ── */
+      .header {
+        padding: 0.9rem 1.5rem 0.8rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        background: linear-gradient(
+          180deg,
+          rgba(79, 158, 255, 0.05) 0%,
+          transparent 100%
+        );
+        flex-shrink: 0;
+      }
+      .header-left h1 {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.3rem;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #fff 30%, var(--accent2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .header-left p {
+        font-size: 0.72rem;
+        color: var(--text2);
+        margin-top: 1px;
+        font-family: "DM Mono", monospace;
+        letter-spacing: 0.04em;
+      }
+      .badge-row {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .badge {
+        font-size: 0.65rem;
+        font-family: "DM Mono", monospace;
+        padding: 2px 8px;
+        border-radius: 20px;
+        border: 1px solid;
+        font-weight: 500;
+      }
+      .badge-blue {
+        color: var(--accent);
+        border-color: rgba(79, 158, 255, 0.35);
+        background: rgba(79, 158, 255, 0.08);
+      }
+      .badge-green {
+        color: var(--green);
+        border-color: rgba(52, 211, 153, 0.35);
+        background: rgba(52, 211, 153, 0.08);
+      }
+      .badge-amber {
+        color: var(--amber);
+        border-color: rgba(251, 191, 36, 0.35);
+        background: rgba(251, 191, 36, 0.08);
+      }
+      .badge-purple {
+        color: var(--purple);
+        border-color: rgba(167, 139, 250, 0.35);
+        background: rgba(167, 139, 250, 0.08);
+      }
+
+      /* ── TOP TABS ── */
+      .top-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        background: var(--bg2);
+      }
+      .top-tab {
+        padding: 0.55rem 1.1rem;
+        font-size: 0.72rem;
+        font-family: "DM Mono", monospace;
+        color: var(--text3);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+      .top-tab:hover {
+        color: var(--text2);
+      }
+      .top-tab.active {
+        color: var(--accent2);
+        border-bottom-color: var(--accent);
+      }
+
+      /* ── MAIN LAYOUT ── */
+      .main {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        flex: 1;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      /* ── SIDEBAR ── */
+      .sidebar {
+        background: var(--bg2);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+        height: 100%;
+      }
+      .sidebar-section {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .section-label {
+        font-size: 0.6rem;
+        font-family: "DM Mono", monospace;
+        letter-spacing: 0.12em;
+        color: var(--text3);
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+      .city-label-inline {
+        font-size: 0.68rem;
+        color: var(--text3);
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .dot-src {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--amber);
+        display: inline-block;
+      }
+      .dot-dst {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--red);
+        display: inline-block;
+      }
+
+      select {
+        width: 100%;
+        padding: 7px 10px;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 0.8rem;
+        font-family: "DM Sans", sans-serif;
+        outline: none;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238892a4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        transition: border-color 0.15s;
+      }
+      select:focus {
+        border-color: var(--accent);
+      }
+
+      .swap-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        cursor: pointer;
+        margin: 4px auto;
+        color: var(--text2);
+        font-size: 12px;
+        transition: all 0.2s;
+      }
+      .swap-btn:hover {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        transform: rotate(180deg);
+      }
+
+      /* Algo grid */
+      .algo-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+      }
+      .algo-btn {
+        padding: 7px 5px;
+        border-radius: 7px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text2);
+        font-size: 0.68rem;
+        font-family: "DM Mono", monospace;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+        line-height: 1.3;
+      }
+      .algo-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .algo-btn.active {
+        background: rgba(79, 158, 255, 0.15);
+        border-color: var(--accent);
+        color: var(--accent2);
+        font-weight: 500;
+      }
+      .algo-btn .algo-complexity {
+        display: block;
+        font-size: 0.55rem;
+        color: var(--text3);
+        margin-top: 2px;
+      }
+      .algo-btn.active .algo-complexity {
+        color: rgba(126, 200, 255, 0.6);
+      }
+
+      /* Mode toggle */
+      .mode-toggle {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 0.5rem;
+      }
+      .mode-btn {
+        flex: 1;
+        padding: 5px 0;
+        border-radius: 6px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text3);
+        font-size: 0.62rem;
+        font-family: "DM Mono", monospace;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.15s;
+      }
+      .mode-btn.active {
+        background: rgba(79, 158, 255, 0.15);
+        border-color: var(--accent);
+        color: var(--accent2);
+      }
+
+      /* Animation controls */
+      .anim-controls {
+        display: flex;
+        gap: 5px;
+      }
+      .anim-btn {
+        flex: 1;
+        padding: 6px 4px;
+        border-radius: 6px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text2);
+        font-size: 0.65rem;
+        font-family: "DM Mono", monospace;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+      }
+      .anim-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .anim-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      .anim-btn.active {
+        background: rgba(79, 158, 255, 0.15);
+        border-color: var(--accent);
+        color: var(--accent2);
+      }
+
+      .speed-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .speed-label {
+        font-size: 0.6rem;
+        color: var(--text3);
+        font-family: "DM Mono", monospace;
+        white-space: nowrap;
+      }
+      input[type="range"] {
+        flex: 1;
+        height: 3px;
+        accent-color: var(--accent);
+      }
+
+      /* Run button */
+      .run-btn {
+        width: 100%;
+        padding: 9px;
+        border-radius: 7px;
+        border: none;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        color: #fff;
+        font-size: 0.82rem;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          opacity 0.15s,
+          transform 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .run-btn:hover {
+        opacity: 0.9;
+      }
+      .run-btn:active {
+        transform: scale(0.98);
+      }
+      .run-row {
+        display: flex;
+        gap: 6px;
+      }
+      .reset-btn {
+        padding: 9px 12px;
+        border-radius: 7px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text2);
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .reset-btn:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      /* Toggle rows */
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 5px;
+      }
+      .toggle-label {
+        font-size: 0.68rem;
+        color: var(--text2);
+      }
+      .toggle {
+        position: relative;
+        width: 30px;
+        height: 16px;
+      }
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .toggle-slider {
+        position: absolute;
+        inset: 0;
+        background: var(--bg3);
+        border-radius: 8px;
+        border: 1px solid var(--border2);
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .toggle-slider:before {
+        content: "";
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        left: 2px;
+        top: 2px;
+        background: var(--text3);
+        border-radius: 50%;
+        transition: 0.2s;
+      }
+      .toggle input:checked + .toggle-slider {
+        background: rgba(79, 158, 255, 0.25);
+        border-color: var(--accent);
+      }
+      .toggle input:checked + .toggle-slider:before {
+        transform: translateX(14px);
+        background: var(--accent);
+      }
+
+      /* Legend */
+      .legend {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.68rem;
+        color: var(--text2);
+      }
+      .leg-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .leg-line {
+        width: 16px;
+        height: 3px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      /* Result panel */
+      .result-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.8rem 1rem;
+        min-height: 0;
+      }
+      .result-panel::-webkit-scrollbar {
+        width: 3px;
+      }
+      .result-panel::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 2px;
+      }
+      .result-empty {
+        color: var(--text3);
+        font-size: 0.74rem;
+        text-align: center;
+        padding: 1.5rem 0;
+        font-family: "DM Mono", monospace;
+      }
+
+      /* Complexity panel */
+      .complexity-panel {
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 9px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        animation: fadeIn 0.3s ease;
+      }
+      .cp-algo-name {
+        font-size: 0.78rem;
+        font-weight: 600;
+        font-family: "Syne", sans-serif;
+        margin-bottom: 6px;
+      }
+      .cp-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 5px;
+        flex-wrap: wrap;
+      }
+      .cp-badge {
+        font-size: 0.6rem;
+        font-family: "DM Mono", monospace;
+        padding: 2px 8px;
+        border-radius: 5px;
+        border: 1px solid;
+      }
+      .cp-time {
+        color: #fbbf24;
+        border-color: rgba(251, 191, 36, 0.3);
+        background: rgba(251, 191, 36, 0.07);
+      }
+      .cp-space {
+        color: #a78bfa;
+        border-color: rgba(167, 139, 250, 0.3);
+        background: rgba(167, 139, 250, 0.07);
+      }
+      .cp-optimal {
+        color: #34d399;
+        border-color: rgba(52, 211, 153, 0.3);
+        background: rgba(52, 211, 153, 0.07);
+      }
+      .cp-notoptimal {
+        color: #f87171;
+        border-color: rgba(248, 113, 113, 0.3);
+        background: rgba(248, 113, 113, 0.07);
+      }
+      .cp-desc {
+        font-size: 0.66rem;
+        color: var(--text2);
+        line-height: 1.6;
+      }
+      .cp-use {
+        font-size: 0.63rem;
+        color: var(--teal);
+        margin-top: 4px;
+        font-family: "DM Mono", monospace;
+      }
+
+      /* Path card */
+      .path-card {
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 9px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        animation: fadeIn 0.3s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .path-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 7px;
+      }
+      .path-card-title {
+        font-size: 0.72rem;
+        font-family: "DM Mono", monospace;
+        color: var(--accent2);
+        font-weight: 500;
+      }
+      .dist-badge {
+        font-size: 0.65rem;
+        font-family: "DM Mono", monospace;
+        padding: 2px 7px;
+        border-radius: 20px;
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--green);
+        border: 1px solid rgba(52, 211, 153, 0.25);
+      }
+      .dist-badge.suboptimal {
+        background: rgba(251, 191, 36, 0.1);
+        color: var(--amber);
+        border-color: rgba(251, 191, 36, 0.2);
+      }
+      .path-cities {
+        font-size: 0.66rem;
+        color: var(--text2);
+        line-height: 1.9;
+        word-break: break-word;
+      }
+      .city-chip {
+        display: inline-block;
+        background: rgba(79, 158, 255, 0.1);
+        border: 1px solid rgba(79, 158, 255, 0.2);
+        border-radius: 4px;
+        padding: 1px 5px;
+        margin: 1px;
+        font-size: 0.62rem;
+        color: var(--accent2);
+      }
+      .arrow {
+        color: var(--text3);
+        margin: 0 1px;
+      }
+      .path-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        margin-top: 7px;
+      }
+      .stat-item {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 5px;
+        padding: 5px 7px;
+      }
+      .stat-label {
+        font-size: 0.56rem;
+        color: var(--text3);
+        font-family: "DM Mono", monospace;
+      }
+      .stat-value {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--text);
+        margin-top: 1px;
+      }
+      .perf-row {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+        flex-wrap: wrap;
+      }
+      .perf-item {
+        background: rgba(45, 212, 191, 0.06);
+        border: 1px solid rgba(45, 212, 191, 0.15);
+        border-radius: 5px;
+        padding: 3px 8px;
+        font-size: 0.6rem;
+        color: var(--teal);
+        font-family: "DM Mono", monospace;
+      }
+
+      /* Comparison section */
+      .comparison-section {
+        margin-top: 10px;
+      }
+      .comparison-label {
+        font-size: 0.6rem;
+        font-family: "DM Mono", monospace;
+        letter-spacing: 0.1em;
+        color: var(--text3);
+        text-transform: uppercase;
+        margin-bottom: 7px;
+      }
+      .comp-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.66rem;
+        font-family: "DM Mono", monospace;
+      }
+      .comp-table th {
+        text-align: left;
+        padding: 5px 7px;
+        color: var(--text3);
+        font-weight: 400;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.58rem;
+        letter-spacing: 0.05em;
+      }
+      .comp-table td {
+        padding: 6px 7px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        color: var(--text2);
+        vertical-align: middle;
+      }
+      .comp-table tr:last-child td {
+        border-bottom: none;
+      }
+      .comp-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .comp-table .best-row td {
+        color: var(--text);
+      }
+      .comp-table .best-row td:first-child {
+        color: var(--green);
+        font-weight: 500;
+      }
+      .bar-cell {
+        min-width: 70px;
+      }
+      .bar-wrap {
+        height: 3px;
+        background: rgba(255, 255, 255, 0.07);
+        border-radius: 2px;
+        margin-top: 2px;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.6s ease;
+      }
+      .winner-star {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 13px;
+        height: 13px;
+        background: rgba(52, 211, 153, 0.2);
+        border-radius: 50%;
+        color: var(--green);
+        font-size: 8px;
+        margin-left: 3px;
+      }
+
+      /* Error/info message */
+      .msg-box {
+        padding: 8px 12px;
+        border-radius: 7px;
+        font-size: 0.72rem;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: fadeIn 0.2s ease;
+      }
+      .msg-error {
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        color: var(--red);
+      }
+      .msg-info {
+        background: rgba(79, 158, 255, 0.08);
+        border: 1px solid rgba(79, 158, 255, 0.2);
+        color: var(--accent2);
+      }
+      .msg-warn {
+        background: rgba(251, 191, 36, 0.08);
+        border: 1px solid rgba(251, 191, 36, 0.2);
+        color: var(--amber);
+      }
+
+      /* ── MAP AREA ── */
+      .map-area {
+        position: relative;
+        background: var(--bg);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .map-topbar {
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: rgba(255, 255, 255, 0.01);
+        flex-shrink: 0;
+      }
+      .map-hint {
+        font-size: 0.67rem;
+        color: var(--text3);
+        font-family: "DM Mono", monospace;
+      }
+      .status-pill {
+        font-size: 0.65rem;
+        font-family: "DM Mono", monospace;
+        padding: 2px 9px;
+        border-radius: 20px;
+        background: rgba(79, 158, 255, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(79, 158, 255, 0.2);
+        margin-left: auto;
+      }
+      .step-counter {
+        font-size: 0.62rem;
+        font-family: "DM Mono", monospace;
+        color: var(--text3);
+        margin-left: 8px;
+      }
+
+      /* Canvas view */
+      #canvasView {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Leaflet map view */
+      #mapView {
+        flex: 1;
+        display: none;
+      }
+      #leafletMap {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Frontier queue display */
+      #frontierPanel {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(10, 14, 26, 0.88);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.62rem;
+        font-family: "DM Mono", monospace;
+        min-width: 130px;
+        max-width: 200px;
+        max-height: 200px;
+        overflow-y: auto;
+        pointer-events: none;
+        backdrop-filter: blur(6px);
+        z-index: 10;
+        display: none;
+      }
+      #frontierPanel .fp-title {
+        color: var(--text3);
+        margin-bottom: 5px;
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .fp-item {
+        padding: 2px 0;
+        color: var(--text2);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .fp-item.current {
+        color: var(--amber);
+      }
+      .fp-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* A* heuristic overlay */
+      #heuristicPanel {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        background: rgba(10, 14, 26, 0.88);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.62rem;
+        font-family: "DM Mono", monospace;
+        max-width: 180px;
+        max-height: 200px;
+        overflow-y: auto;
+        pointer-events: none;
+        backdrop-filter: blur(6px);
+        z-index: 10;
+        display: none;
+      }
+      #heuristicPanel .hp-title {
+        color: var(--text3);
+        margin-bottom: 5px;
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .hp-row {
+        margin-bottom: 3px;
+        color: var(--text2);
+      }
+      .hp-city {
+        color: var(--accent2);
+      }
+      .hp-g {
+        color: var(--green);
+      }
+      .hp-h {
+        color: var(--purple);
+      }
+      .hp-f {
+        color: var(--amber);
+      }
+
+      /* Zoom controls */
+      .zoom-controls {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 10;
+      }
+      .zoom-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--border2);
+        background: rgba(10, 14, 26, 0.85);
+        color: var(--text2);
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        backdrop-filter: blur(4px);
+      }
+      .zoom-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* Tooltip */
+      .tooltip {
+        position: fixed;
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        padding: 5px 9px;
+        font-size: 0.68rem;
+        font-family: "DM Mono", monospace;
+        color: var(--text);
+        pointer-events: none;
+        z-index: 100;
+        display: none;
+        white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      /* ── TAB PANELS ── */
+      .tab-panel {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .tab-panel.active {
+        display: flex;
+      }
+
+      /* Test cases panel */
+      .test-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem 1.25rem;
+      }
+      .test-panel::-webkit-scrollbar {
+        width: 3px;
+      }
+      .test-panel::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 2px;
+      }
+      .test-case {
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 9px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+      .test-case-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      .test-case-title {
+        font-size: 0.72rem;
+        font-family: "Syne", sans-serif;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .test-run-btn {
+        font-size: 0.62rem;
+        font-family: "DM Mono", monospace;
+        padding: 3px 9px;
+        border-radius: 5px;
+        border: 1px solid rgba(79, 158, 255, 0.3);
+        background: rgba(79, 158, 255, 0.08);
+        color: var(--accent);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .test-run-btn:hover {
+        background: rgba(79, 158, 255, 0.18);
+      }
+      .test-route {
+        font-size: 0.68rem;
+        color: var(--text2);
+        margin-bottom: 5px;
+      }
+      .test-results-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        margin-top: 6px;
+      }
+      .test-stat {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 5px;
+        padding: 4px 7px;
+        font-size: 0.6rem;
+      }
+      .test-stat-label {
+        color: var(--text3);
+        font-family: "DM Mono", monospace;
+        font-size: 0.56rem;
+      }
+      .test-stat-val {
+        color: var(--text);
+        font-weight: 500;
+        margin-top: 1px;
+      }
+      .test-pending {
+        font-size: 0.62rem;
+        color: var(--text3);
+        font-family: "DM Mono", monospace;
+        text-align: center;
+        padding: 0.8rem 0;
+      }
+
+      /* Custom graph panel */
+      .custom-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem 1.25rem;
+      }
+      .custom-panel::-webkit-scrollbar {
+        width: 3px;
+      }
+      .custom-panel::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 2px;
+      }
+      .form-group {
+        margin-bottom: 10px;
+      }
+      .form-label {
+        font-size: 0.65rem;
+        color: var(--text2);
+        margin-bottom: 4px;
+        display: block;
+        font-family: "DM Mono", monospace;
+      }
+      .form-input {
+        width: 100%;
+        padding: 7px 10px;
+        background: var(--bg3);
+        border: 1px solid var(--border2);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 0.8rem;
+        font-family: "DM Sans", sans-serif;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+      .form-btn {
+        width: 100%;
+        padding: 7px;
+        border-radius: 6px;
+        border: 1px solid var(--border2);
+        background: var(--bg3);
+        color: var(--text2);
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: "DM Mono", monospace;
+      }
+      .form-btn:hover {
+        border-color: var(--green);
+        color: var(--green);
+      }
+      .form-btn.danger:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .custom-cities-list {
+        max-height: 100px;
+        overflow-y: auto;
+        margin-top: 5px;
+      }
+      .custom-city-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 3px 0;
+        font-size: 0.65rem;
+        color: var(--text2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .custom-city-item:last-child {
+        border-bottom: none;
+      }
+      .remove-btn {
+        font-size: 0.58rem;
+        color: var(--red);
+        cursor: pointer;
+        padding: 1px 4px;
+      }
+
+      @media (max-width: 700px) {
+        .main {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          max-height: 40vh;
+          overflow-y: auto;
+        }
+        .tab-panel.active {
+          height: 60vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-left">
+        <h1>
+          Indian City Pathfinder
+          <!-- <span style="font-size: 0.75rem; color: var(--text3)">v2</span> -->
+        </h1>
+        <!-- <p>Design &amp; Analysis of Algorithms — Full Feature Edition</p> -->
+      </div>
+      <div class="badge-row">
+        <span class="badge badge-blue">Dijkstra's</span>
+        <span class="badge badge-green">BFS</span>
+        <span class="badge badge-amber">DFS</span>
+        <span class="badge badge-purple">A*</span>
+      </div>
+    </div>
+
+    <!-- TOP TABS -->
+    <div class="top-tabs">
+      <div class="top-tab active" data-tab="graph">Graph View</div>
+      <div class="top-tab" data-tab="realmap">Real Map</div>
+      <div class="top-tab" data-tab="testcases">Test Cases</div>
+      <div class="top-tab" data-tab="customgraph">Custom Graph</div>
+    </div>
+
+    <!-- TAB: GRAPH VIEW -->
+    <div class="tab-panel active" id="tab-graph">
+      <div class="main">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+          <div
+            style="
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+              min-height: 0;
+            "
+          >
+            <!-- City Selection -->
+            <div class="sidebar-section">
+              <div class="section-label">Select Cities</div>
+              <div class="city-label-inline">
+                <span class="dot-src"></span> Source
+              </div>
+              <select id="srcSelect"></select>
+              <div class="swap-btn" onclick="swapCities()" title="Swap">⇅</div>
+              <div class="city-label-inline">
+                <span class="dot-dst"></span> Destination
+              </div>
+              <select id="dstSelect"></select>
+            </div>
+
+            <!-- Algorithm -->
+            <div class="sidebar-section">
+              <div class="section-label">Algorithm</div>
+              <div class="algo-grid">
+                <button class="algo-btn active" data-algo="dijkstra">
+                  Dijkstra's<span class="algo-complexity">O((V+E)logV)</span>
+                </button>
+                <button class="algo-btn" data-algo="bfs">
+                  BFS<span class="algo-complexity">O(V+E)</span>
+                </button>
+                <button class="algo-btn" data-algo="dfs">
+                  DFS<span class="algo-complexity">O(V+E)</span>
+                </button>
+                <button class="algo-btn" data-algo="astar">
+                  A* Search<span class="algo-complexity">O(E logV)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Mode + Animation -->
+            <div class="sidebar-section">
+              <div class="section-label">Execution Mode</div>
+              <div class="mode-toggle">
+                <button
+                  class="mode-btn active"
+                  id="modeInstant"
+                  onclick="setMode('instant')"
+                >
+                  ⚡ Instant
+                </button>
+                <button
+                  class="mode-btn"
+                  id="modeAnim"
+                  onclick="setMode('animated')"
+                >
+                  🎬 Animated
+                </button>
+              </div>
+              <div id="animControls" style="display: none">
+                <div class="anim-controls">
+                  <button
+                    class="anim-btn"
+                    id="btnPlay"
+                    onclick="animPlay()"
+                    title="Play"
+                  >
+                    ▶ Play
+                  </button>
+                  <button
+                    class="anim-btn"
+                    id="btnPause"
+                    onclick="animPause()"
+                    title="Pause"
+                    disabled
+                  >
+                    ⏸
+                  </button>
+                  <button
+                    class="anim-btn"
+                    id="btnStep"
+                    onclick="animStep()"
+                    title="Step"
+                  >
+                    ⏭ Step
+                  </button>
+                </div>
+                <div class="speed-row">
+                  <span class="speed-label">Speed</span>
+                  <input
+                    type="range"
+                    id="speedSlider"
+                    min="1"
+                    max="10"
+                    value="5"
+                    oninput="updateSpeed(this.value)"
+                  />
+                  <span
+                    id="speedLabel"
+                    style="
+                      font-size: 0.6rem;
+                      color: var(--text3);
+                      min-width: 20px;
+                    "
+                    >5</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="sidebar-section">
+              <div class="section-label">Display Options</div>
+              <div class="toggle-row">
+                <span class="toggle-label">Show Heuristics (A*)</span>
+                <label class="toggle"
+                  ><input
+                    type="checkbox"
+                    id="showHeuristic"
+                    onchange="toggleHeuristic()" /><span
+                    class="toggle-slider"
+                  ></span
+                ></label>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Show Frontier Queue</span>
+                <label class="toggle"
+                  ><input
+                    type="checkbox"
+                    id="showFrontier"
+                    onchange="toggleFrontier()" /><span
+                    class="toggle-slider"
+                  ></span
+                ></label>
+              </div>
+              <div class="toggle-row">
+                <span class="toggle-label">Show Edge Weights</span>
+                <label class="toggle"
+                  ><input type="checkbox" id="showWeights" checked /><span
+                    class="toggle-slider"
+                  ></span
+                ></label>
+              </div>
+            </div>
+
+            <!-- Run -->
+            <div class="sidebar-section">
+              <div class="run-row">
+                <button class="run-btn" onclick="runSelected()">
+                  <span>▶</span> Find Path
+                </button>
+                <button class="reset-btn" onclick="resetAll()">✕</button>
+              </div>
+            </div>
+
+            <!-- Legend -->
+            <!-- <div class="sidebar-section">
+              <div class="section-label">Legend</div>
+              <div class="legend">
+                <div class="legend-item">
+                  <div class="leg-dot" style="background: var(--amber)"></div>
+                  Source (S)
+                </div>
+                <div class="legend-item">
+                  <div class="leg-dot" style="background: var(--red)"></div>
+                  Destination (D)
+                </div>
+                <div class="legend-item">
+                  <div
+                    class="leg-dot"
+                    style="background: var(--node-path)"
+                  ></div>
+                  Path node
+                </div>
+                <div class="legend-item">
+                  <div class="leg-dot" style="background: var(--city)"></div>
+                  City node
+                </div>
+                <div class="legend-item">
+                  <div
+                    class="leg-dot"
+                    style="background: var(--frontier)"
+                  ></div>
+                  Frontier node
+                </div>
+                <div class="legend-item">
+                  <div
+                    class="leg-line"
+                    style="background: var(--path-edge)"
+                  ></div>
+                  Shortest path
+                </div>
+                <div class="legend-item">
+                  <div
+                    class="leg-line"
+                    style="background: var(--visited-edge)"
+                  ></div>
+                  Visited edge
+                </div>
+              </div>
+            </div> -->
+
+            <!-- Result panel -->
+            <div class="result-panel" id="resultPanel">
+              <div class="result-empty" id="emptyMsg">
+                Run an algorithm to see results
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- end sidebar -->
+
+        <!-- MAP AREA -->
+        <div class="map-area">
+          <div class="map-topbar">
+            <span class="map-hint"
+              >Click city: set source → destination &nbsp;|&nbsp; Scroll: zoom
+              &nbsp;|&nbsp; Drag: pan</span
+            >
+            <span class="step-counter" id="stepCounter"></span>
+            <span class="status-pill" id="statusPill">Ready</span>
+          </div>
+          <div id="canvasView">
+            <canvas id="mapCanvas"></canvas>
+            <!-- Frontier panel -->
+            <div id="frontierPanel">
+              <div class="fp-title">Frontier Queue</div>
+              <div id="frontierList"></div>
+            </div>
+            <!-- Heuristic panel -->
+            <div id="heuristicPanel">
+              <div class="hp-title">A* Heuristics</div>
+              <div id="heuristicList"></div>
+            </div>
+            <!-- Zoom controls -->
+            <div class="zoom-controls">
+              <button class="zoom-btn" onclick="zoom(1.2)" title="Zoom in">
+                +
+              </button>
+              <button class="zoom-btn" onclick="zoom(0.83)" title="Zoom out">
+                −
+              </button>
+              <button
+                class="zoom-btn"
+                onclick="resetZoom()"
+                title="Reset view"
+                style="font-size: 10px"
+              >
+                ⊡
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- end map area -->
+      </div>
+      <!-- end .main -->
+    </div>
+    <!-- end tab-graph -->
+
+    <!-- TAB: REAL MAP -->
+    <div class="tab-panel" id="tab-realmap">
+      <div
+        style="
+          padding: 0.5rem 1rem;
+          border-bottom: 1px solid var(--border);
+          background: var(--bg2);
+          font-size: 0.68rem;
+          color: var(--text2);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        "
+      >
+        <span>Source:</span>
+        <select
+          id="rmSrc"
+          style="
+            width: 130px;
+            padding: 4px 8px;
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 0.72rem;
+            outline: none;
+          "
+        ></select>
+        <span>Dest:</span>
+        <select
+          id="rmDst"
+          style="
+            width: 130px;
+            padding: 4px 8px;
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 0.72rem;
+            outline: none;
+          "
+        ></select>
+        <select
+          id="rmAlgo"
+          style="
+            width: 110px;
+            padding: 4px 8px;
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 0.72rem;
+            outline: none;
+          "
+        >
+          <option value="dijkstra">Dijkstra's</option>
+          <option value="bfs">BFS</option>
+          <option value="dfs">DFS</option>
+          <option value="astar">A*</option>
+        </select>
+        <button
+          onclick="runRealMap()"
+          style="
+            padding: 4px 14px;
+            border-radius: 5px;
+            border: none;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: #fff;
+            font-size: 0.72rem;
+            cursor: pointer;
+          "
+        >
+          Find Path
+        </button>
+        <span
+          id="rmStatus"
+          style="
+            color: var(--text3);
+            font-size: 0.65rem;
+            font-family: &quot;DM Mono&quot;, monospace;
+            margin-left: auto;
+          "
+        ></span>
+      </div>
+      <div id="mapView" style="display: flex; flex: 1">
+        <div id="leafletMap"></div>
+      </div>
+    </div>
+
+    <!-- TAB: TEST CASES -->
+    <div class="tab-panel" id="tab-testcases">
+      <div class="test-panel" id="testCasesContainer"></div>
+    </div>
+
+    <!-- TAB: CUSTOM GRAPH -->
+    <div class="tab-panel" id="tab-customgraph">
+      <div class="custom-panel">
+        <div
+          style="
+            font-size: 0.7rem;
+            color: var(--accent2);
+            font-family: &quot;DM Mono&quot;, monospace;
+            margin-bottom: 10px;
+          "
+        >
+          Adding cities/edges here overlays on the predefined Indian graph.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Add City</label>
+          <div style="display: flex; gap: 6px">
+            <input
+              class="form-input"
+              id="newCityName"
+              placeholder="City name"
+              style="flex: 1"
+            />
+            <button
+              class="form-btn"
+              onclick="addCustomCity()"
+              style="width: auto; padding: 7px 12px"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+        <div id="customCityList" class="custom-cities-list"></div>
+        <div class="form-group" style="margin-top: 10px">
+          <label class="form-label">Add Edge</label>
+          <div class="form-row">
+            <select
+              id="edgeA"
+              style="
+                padding: 6px 8px;
+                background: var(--bg3);
+                border: 1px solid var(--border2);
+                border-radius: 6px;
+                color: var(--text);
+                font-size: 0.72rem;
+                outline: none;
+              "
+            ></select>
+            <select
+              id="edgeB"
+              style="
+                padding: 6px 8px;
+                background: var(--bg3);
+                border: 1px solid var(--border2);
+                border-radius: 6px;
+                color: var(--text);
+                font-size: 0.72rem;
+                outline: none;
+              "
+            ></select>
+            <input
+              class="form-input"
+              id="edgeDist"
+              type="number"
+              placeholder="km"
+              min="1"
+            />
+          </div>
+          <button
+            class="form-btn"
+            style="margin-top: 6px"
+            onclick="addCustomEdge()"
+          >
+            + Add Edge
+          </button>
+        </div>
+        <div
+          id="customEdgeList"
+          style="max-height: 80px; overflow-y: auto; margin-top: 5px"
+        ></div>
+        <div style="display: flex; gap: 6px; margin-top: 10px">
+          <button class="form-btn danger" onclick="resetCustom()">
+            Reset Custom Additions
+          </button>
+        </div>
+        <div id="customMsg" style="margin-top: 8px; font-size: 0.65rem"></div>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+      // ═══════════════════════════════════════════
+      //  DATA
+      // ═══════════════════════════════════════════
+      const BASE_CITIES = {
+        Delhi: {
+          x: 0.365,
+          y: 0.165,
+          lat: 28.61,
+          lon: 77.21,
+          full: "New Delhi",
+        },
+        Mumbai: { x: 0.2, y: 0.51, lat: 19.08, lon: 72.88, full: "Mumbai" },
+        Kolkata: { x: 0.72, y: 0.36, lat: 22.57, lon: 88.36, full: "Kolkata" },
+        Chennai: { x: 0.49, y: 0.745, lat: 13.08, lon: 80.27, full: "Chennai" },
+        Bangalore: {
+          x: 0.42,
+          y: 0.745,
+          lat: 12.97,
+          lon: 77.59,
+          full: "Bangalore",
+        },
+        Hyderabad: {
+          x: 0.45,
+          y: 0.615,
+          lat: 17.38,
+          lon: 78.49,
+          full: "Hyderabad",
+        },
+        Pune: { x: 0.265, y: 0.56, lat: 18.52, lon: 73.86, full: "Pune" },
+        Ahmedabad: {
+          x: 0.225,
+          y: 0.375,
+          lat: 23.03,
+          lon: 72.59,
+          full: "Ahmedabad",
+        },
+        Jaipur: { x: 0.31, y: 0.25, lat: 26.91, lon: 75.79, full: "Jaipur" },
+        Lucknow: { x: 0.52, y: 0.235, lat: 26.85, lon: 80.95, full: "Lucknow" },
+        Nagpur: { x: 0.455, y: 0.48, lat: 21.15, lon: 79.09, full: "Nagpur" },
+        Surat: { x: 0.225, y: 0.455, lat: 21.17, lon: 72.83, full: "Surat" },
+        Bhopal: { x: 0.385, y: 0.375, lat: 23.26, lon: 77.41, full: "Bhopal" },
+        Patna: { x: 0.625, y: 0.295, lat: 25.59, lon: 85.14, full: "Patna" },
+        Chandigarh: {
+          x: 0.345,
+          y: 0.115,
+          lat: 30.73,
+          lon: 76.78,
+          full: "Chandigarh",
+        },
+        Indore: { x: 0.34, y: 0.395, lat: 22.72, lon: 75.86, full: "Indore" },
+        Varanasi: {
+          x: 0.57,
+          y: 0.27,
+          lat: 25.32,
+          lon: 83.01,
+          full: "Varanasi",
+        },
+        Agra: { x: 0.4, y: 0.21, lat: 27.18, lon: 78.01, full: "Agra" },
+        Amritsar: {
+          x: 0.295,
+          y: 0.09,
+          lat: 31.63,
+          lon: 74.87,
+          full: "Amritsar",
+        },
+        Jodhpur: { x: 0.25, y: 0.27, lat: 26.29, lon: 73.02, full: "Jodhpur" },
+        Kochi: { x: 0.375, y: 0.855, lat: 9.93, lon: 76.27, full: "Kochi" },
+        Coimbatore: {
+          x: 0.415,
+          y: 0.82,
+          lat: 11.02,
+          lon: 76.97,
+          full: "Coimbatore",
+        },
+        Visakhapatnam: {
+          x: 0.58,
+          y: 0.6,
+          lat: 17.69,
+          lon: 83.22,
+          full: "Visakhapatnam",
+        },
+        Bhubaneswar: {
+          x: 0.64,
+          y: 0.49,
+          lat: 20.3,
+          lon: 85.82,
+          full: "Bhubaneswar",
+        },
+        Guwahati: {
+          x: 0.84,
+          y: 0.21,
+          lat: 26.14,
+          lon: 91.74,
+          full: "Guwahati",
+        },
+        Ranchi: { x: 0.655, y: 0.38, lat: 23.34, lon: 85.31, full: "Ranchi" },
+        Jabalpur: {
+          x: 0.44,
+          y: 0.41,
+          lat: 23.18,
+          lon: 79.95,
+          full: "Jabalpur",
+        },
+        Raipur: { x: 0.525, y: 0.48, lat: 21.25, lon: 81.63, full: "Raipur" },
+      };
+
+      const BASE_EDGES = [
+        ["Delhi", "Agra", 206],
+        ["Delhi", "Jaipur", 270],
+        ["Delhi", "Chandigarh", 250],
+        ["Delhi", "Lucknow", 555],
+        ["Delhi", "Bhopal", 770],
+        ["Delhi", "Amritsar", 450],
+        ["Agra", "Jaipur", 235],
+        ["Agra", "Lucknow", 340],
+        ["Agra", "Varanasi", 570],
+        ["Jaipur", "Jodhpur", 340],
+        ["Jaipur", "Ahmedabad", 650],
+        ["Jaipur", "Bhopal", 530],
+        ["Chandigarh", "Amritsar", 220],
+        ["Amritsar", "Jodhpur", 700],
+        ["Jodhpur", "Ahmedabad", 460],
+        ["Ahmedabad", "Surat", 270],
+        ["Ahmedabad", "Mumbai", 530],
+        ["Ahmedabad", "Indore", 390],
+        ["Surat", "Mumbai", 310],
+        ["Surat", "Pune", 390],
+        ["Mumbai", "Pune", 150],
+        ["Mumbai", "Hyderabad", 710],
+        ["Mumbai", "Nagpur", 830],
+        ["Pune", "Hyderabad", 570],
+        ["Pune", "Nagpur", 710],
+        ["Bhopal", "Nagpur", 360],
+        ["Bhopal", "Indore", 195],
+        ["Bhopal", "Jabalpur", 290],
+        ["Indore", "Nagpur", 490],
+        ["Jabalpur", "Nagpur", 310],
+        ["Jabalpur", "Raipur", 440],
+        ["Nagpur", "Hyderabad", 500],
+        ["Nagpur", "Raipur", 300],
+        ["Nagpur", "Ranchi", 700],
+        ["Lucknow", "Varanasi", 285],
+        ["Lucknow", "Patna", 490],
+        ["Varanasi", "Patna", 220],
+        ["Patna", "Ranchi", 330],
+        ["Patna", "Kolkata", 610],
+        ["Ranchi", "Kolkata", 400],
+        ["Ranchi", "Bhubaneswar", 440],
+        ["Ranchi", "Raipur", 340],
+        ["Raipur", "Bhubaneswar", 430],
+        ["Raipur", "Visakhapatnam", 600],
+        ["Bhubaneswar", "Kolkata", 450],
+        ["Bhubaneswar", "Visakhapatnam", 440],
+        ["Kolkata", "Guwahati", 1000],
+        ["Hyderabad", "Chennai", 630],
+        ["Hyderabad", "Bangalore", 570],
+        ["Hyderabad", "Visakhapatnam", 620],
+        ["Chennai", "Bangalore", 350],
+        ["Chennai", "Coimbatore", 500],
+        ["Chennai", "Kochi", 680],
+        ["Bangalore", "Coimbatore", 360],
+        ["Bangalore", "Kochi", 530],
+        ["Coimbatore", "Kochi", 200],
+      ];
+
+      let CITIES = { ...BASE_CITIES };
+      let EDGES = [...BASE_EDGES];
+      let customCities = {};
+      let customEdges = [];
+
+      function buildGraph() {
+        const g = {};
+        for (const c in CITIES) g[c] = [];
+        for (const [a, b, d] of EDGES) {
+          if (g[a] && g[b]) {
+            g[a].push({ node: b, dist: d });
+            g[b].push({ node: a, dist: d });
+          }
+        }
+        return g;
+      }
+      let graph = buildGraph();
+
+      // ═══════════════════════════════════════════
+      //  STATE
+      // ═══════════════════════════════════════════
+      let srcCity = "Delhi",
+        dstCity = "Chennai";
+      let selectedAlgo = "dijkstra";
+      let clickPhase = 0;
+      let currentPath = [];
+      let currentVisited = [];
+      let allResults = null;
+      let animMode = "instant";
+
+      // Animation state
+      let animSteps = []; // array of {visitedEdges, frontier, current, astarData}
+      let animIdx = 0;
+      let animPlaying = false;
+      let animTimerId = null;
+      let animSpeed = 5;
+
+      // Zoom/pan
+      let zoomScale = 1,
+        panX = 0,
+        panY = 0,
+        isPanning = false,
+        panStart = { x: 0, y: 0 };
+
+      // Display toggles
+      let showHeuristicFlag = false;
+      let showFrontierFlag = false;
+
+      // Canvas
+      const canvas = document.getElementById("mapCanvas");
+      const ctx = canvas.getContext("2d");
+      let W = 0,
+        H = 0;
+
+      function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        const cont = document.getElementById("canvasView");
+        W = cont.clientWidth;
+        H = cont.clientHeight || cont.clientWidth * 0.65;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + "px";
+        canvas.style.height = H + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+
+      // ═══════════════════════════════════════════
+      //  ALGORITHMS (return step-by-step for animation)
+      // ═══════════════════════════════════════════
+      function dijkstra(src, dst) {
+        const dist = {},
+          prev = {},
+          vis = new Set();
+        for (const c in CITIES) dist[c] = Infinity;
+        dist[src] = 0;
+        const pq = [[0, src]];
+        const steps = [],
+          ve = [];
+        while (pq.length) {
+          pq.sort((a, b) => a[0] - b[0]);
+          const [d, u] = pq.shift();
+          if (vis.has(u)) continue;
+          vis.add(u);
+          const frontier = pq.map((x) => ({
+            node: x[1],
+            val: Math.round(x[0]),
+          }));
+          steps.push({
+            visitedEdges: [...ve],
+            frontier,
+            current: u,
+            visSet: new Set(vis),
+          });
+          if (u === dst) break;
+          for (const { node: v, dist: w } of graph[u]) {
+            if (dist[u] + w < dist[v]) {
+              dist[v] = dist[u] + w;
+              prev[v] = u;
+              ve.push([u, v]);
+              pq.push([dist[v], v]);
+            }
+          }
+        }
+        return {
+          path: buildPath(prev, src, dst),
+          dist: dist[dst],
+          steps,
+          explored: vis.size,
+        };
+      }
+
+      function bfs(src, dst) {
+        const vis = new Set([src]),
+          prev = {};
+        const q = [src];
+        const steps = [],
+          ve = [];
+        while (q.length) {
+          const u = q.shift();
+          const frontier = q.map((x) => ({ node: x, val: null }));
+          steps.push({
+            visitedEdges: [...ve],
+            frontier,
+            current: u,
+            visSet: new Set(vis),
+          });
+          if (u === dst) break;
+          for (const { node: v } of graph[u]) {
+            if (!vis.has(v)) {
+              vis.add(v);
+              prev[v] = u;
+              ve.push([u, v]);
+              q.push(v);
+            }
+          }
+        }
+        const path = buildPath(prev, src, dst);
+        return { path, dist: pathDist(path), steps, explored: vis.size };
+      }
+
+      function dfs(src, dst) {
+        const vis = new Set(),
+          prev = {};
+        const stack = [src];
+        const steps = [],
+          ve = [];
+        while (stack.length) {
+          const u = stack.pop();
+          if (vis.has(u)) continue;
+          vis.add(u);
+          const frontier = stack.slice(-5).map((x) => ({ node: x, val: null }));
+          steps.push({
+            visitedEdges: [...ve],
+            frontier,
+            current: u,
+            visSet: new Set(vis),
+          });
+          if (u === dst) break;
+          for (const { node: v } of [...graph[u]].reverse()) {
+            if (!vis.has(v)) {
+              prev[v] = u;
+              ve.push([u, v]);
+              stack.push(v);
+            }
+          }
+        }
+        const path = buildPath(prev, src, dst);
+        return { path, dist: pathDist(path), steps, explored: vis.size };
+      }
+
+      function haversineLatLon(c1, c2) {
+        const toR = (x) => (x * Math.PI) / 180;
+        const a1 = CITIES[c1],
+          a2 = CITIES[c2];
+        if (!a1 || !a2 || !a1.lat) return 500;
+        const dlat = toR(a2.lat - a1.lat),
+          dlon = toR(a2.lon - a1.lon);
+        const a =
+          Math.sin(dlat / 2) ** 2 +
+          Math.cos(toR(a1.lat)) *
+            Math.cos(toR(a2.lat)) *
+            Math.sin(dlon / 2) ** 2;
+        return 6371 * 2 * Math.asin(Math.sqrt(a));
+      }
+
+      function astar(src, dst) {
+        const g = {},
+          fScore = {},
+          prev = {},
+          vis = new Set(),
+          ve = [];
+        const astarData = {};
+        for (const c in CITIES) {
+          g[c] = Infinity;
+          fScore[c] = Infinity;
+        }
+        g[src] = 0;
+        fScore[src] = haversineLatLon(src, dst);
+        const open = [[fScore[src], 0, src]];
+        const steps = [];
+        while (open.length) {
+          open.sort((a, b) => a[0] - b[0]);
+          const [f, cost, u] = open.shift();
+          if (vis.has(u)) continue;
+          vis.add(u);
+          const frontier = open
+            .slice(0, 5)
+            .map((x) => ({ node: x[2], val: Math.round(x[0]) }));
+          // Compute heuristic data for all open nodes
+          const hData = {};
+          for (const [fi, gi, ni] of open) {
+            hData[ni] = {
+              g: Math.round(gi),
+              h: Math.round(haversineLatLon(ni, dst)),
+              f: Math.round(fi),
+            };
+          }
+          hData[u] = {
+            g: Math.round(g[u]),
+            h: Math.round(haversineLatLon(u, dst)),
+            f: Math.round(fScore[u]),
+          };
+          steps.push({
+            visitedEdges: [...ve],
+            frontier,
+            current: u,
+            visSet: new Set(vis),
+            heuristicData: hData,
+          });
+          if (u === dst) break;
+          for (const { node: v, dist: w } of graph[u]) {
+            if (vis.has(v)) continue;
+            const tg = g[u] + w;
+            if (tg < g[v]) {
+              g[v] = tg;
+              fScore[v] = tg + haversineLatLon(v, dst);
+              prev[v] = u;
+              ve.push([u, v]);
+              open.push([fScore[v], tg, v]);
+            }
+          }
+        }
+        return {
+          path: buildPath(prev, src, dst),
+          dist: g[dst] === Infinity ? Infinity : g[dst],
+          steps,
+          explored: vis.size,
+        };
+      }
+
+      function buildPath(prev, src, dst) {
+        const p = [];
+        let c = dst;
+        while (c && c !== src) {
+          p.unshift(c);
+          c = prev[c];
+        }
+        if (c === src) p.unshift(src);
+        return p.length > 1 && p[0] === src ? p : [];
+      }
+
+      function pathDist(path) {
+        let d = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+          const e = EDGES.find(
+            (x) =>
+              (x[0] === path[i] && x[1] === path[i + 1]) ||
+              (x[0] === path[i + 1] && x[1] === path[i]),
+          );
+          if (e) d += e[2];
+        }
+        return d;
+      }
+
+      function getPathEdges(path) {
+        const edges = [];
+        for (let i = 0; i < path.length - 1; i++)
+          edges.push([path[i], path[i + 1]]);
+        return edges;
+      }
+
+      // ═══════════════════════════════════════════
+      //  DRAW
+      // ═══════════════════════════════════════════
+      function pos(name) {
+        const c = CITIES[name];
+        if (!c) return { x: 0, y: 0 };
+        const baseX = c.x * W,
+          baseY = c.y * H;
+        return { x: baseX * zoomScale + panX, y: baseY * zoomScale + panY };
+      }
+
+      function draw(
+        visitedEdges = [],
+        pathEdges = [],
+        currentNode = null,
+        frontierSet = new Set(),
+        visSet = new Set(),
+      ) {
+        ctx.clearRect(0, 0, W, H);
+
+        // Background grid
+        ctx.fillStyle = "rgba(255,255,255,0.018)";
+        for (let x = 0; x < W; x += 32)
+          for (let y = 0; y < H; y += 32) {
+            ctx.beginPath();
+            ctx.arc(x, y, 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+        const showW = document.getElementById("showWeights").checked;
+
+        // All edges
+        for (const [a, b, d] of EDGES) {
+          if (!CITIES[a] || !CITIES[b]) continue;
+          const pa = pos(a),
+            pb = pos(b);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = "rgba(255,255,255,0.065)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          if (showW && zoomScale > 0.7) {
+            const mx = (pa.x + pb.x) / 2,
+              my = (pa.y + pb.y) / 2;
+            ctx.font = "9px DM Mono,monospace";
+            ctx.fillStyle = "rgba(180,190,210,.38)";
+            ctx.textAlign = "center";
+            ctx.fillText(d + "km", mx, my - 3);
+          }
+        }
+
+        // Visited edges
+        for (const [a, b] of visitedEdges) {
+          if (!CITIES[a] || !CITIES[b]) continue;
+          const pa = pos(a),
+            pb = pos(b);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = "rgba(124,106,245,.5)";
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.7;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        // Path edges
+        for (const [a, b] of pathEdges) {
+          if (!CITIES[a] || !CITIES[b]) continue;
+          const pa = pos(a),
+            pb = pos(b);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = "rgba(248,113,113,.2)";
+          ctx.lineWidth = 10;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = "#f87171";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          const mx = (pa.x + pb.x) / 2,
+            my = (pa.y + pb.y) / 2;
+          const ang = Math.atan2(pb.y - pa.y, pb.x - pa.x);
+          ctx.save();
+          ctx.translate(mx, my);
+          ctx.rotate(ang);
+          ctx.beginPath();
+          ctx.moveTo(-5, -4);
+          ctx.lineTo(0, 0);
+          ctx.lineTo(-5, 4);
+          ctx.strokeStyle = "#f87171";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+          if (showW) {
+            const e = EDGES.find(
+              (x) => (x[0] === a && x[1] === b) || (x[0] === b && x[1] === a),
+            );
+            if (e) {
+              ctx.font = "bold 10px DM Mono,monospace";
+              ctx.fillStyle = "rgba(248,113,113,.9)";
+              ctx.textAlign = "center";
+              ctx.fillText(e[2] + "km", mx + 4, my - 7);
+            }
+          }
+        }
+
+        // Nodes
+        for (const name in CITIES) {
+          const p = pos(name);
+          const isPath = currentPath.includes(name);
+          const isSrc = name === srcCity,
+            isDst = name === dstCity;
+          const isCurrent = name === currentNode;
+          const isFrontier = frontierSet.has(name);
+          const isVisited = visSet.has(name);
+
+          let color = "#4f9eff",
+            r = 5;
+          if (isVisited && !isPath) color = "rgba(124,106,245,.8)";
+          if (isFrontier) {
+            color = "#f472b6";
+            r = 7;
+          }
+          if (isPath) {
+            color = "#34d399";
+            r = 7;
+          }
+          if (isCurrent) {
+            color = "#fbbf24";
+            r = 9;
+          }
+          if (isSrc) {
+            color = "#fbbf24";
+            r = 8;
+          }
+          if (isDst) {
+            color = "#f87171";
+            r = 8;
+          }
+
+          // Pulse rings
+          if (isCurrent) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r + 7, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(251,191,36,.1)";
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(251,191,36,.18)";
+            ctx.fill();
+          }
+          if (isSrc || isDst) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2);
+            ctx.fillStyle = color + "22";
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r + 2, 0, Math.PI * 2);
+            ctx.fillStyle = color + "33";
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * zoomScale ** 0.3, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = "#0a0e1a";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          if (isSrc || isDst || isCurrent) {
+            const lbl = isSrc ? "S" : isDst ? "D" : "●";
+            ctx.fillStyle = "#0a0e1a";
+            ctx.font = `bold ${Math.max(7, 8 * zoomScale ** 0.3)}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(lbl, p.x, p.y);
+          }
+
+          // Label
+          const r2 = r * zoomScale ** 0.3;
+          const shortName = name.length > 10 ? name.slice(0, 9) + "…" : name;
+          ctx.font = `${isSrc || isDst || isPath || isCurrent ? "600 " : ""}${Math.max(8, 10 * zoomScale ** 0.25)}px DM Sans,sans-serif`;
+          ctx.fillStyle = isSrc
+            ? "#fbbf24"
+            : isDst
+              ? "#f87171"
+              : isCurrent
+                ? "#fbbf24"
+                : isPath
+                  ? "#34d399"
+                  : isFrontier
+                    ? "#f472b6"
+                    : "rgba(200,210,230,.7)";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText(shortName, p.x, p.y - r2 - 4);
+        }
+      }
+
+      // ═══════════════════════════════════════════
+      //  RUN
+      // ═══════════════════════════════════════════
+      function runSelected() {
+        // Edge cases
+        const panel = document.getElementById("resultPanel");
+        panel
+          .querySelectorAll(
+            ".msg-box,.path-card,.comparison-section,.complexity-panel",
+          )
+          .forEach((e) => e.remove());
+        document.getElementById("emptyMsg").style.display = "none";
+
+        if (!(srcCity in CITIES) || !(dstCity in CITIES)) {
+          showMsg("error", "City not found in graph.");
+          return;
+        }
+        if (srcCity === dstCity) {
+          showMsg(
+            "warn",
+            "Source and destination are the same city. Please select different cities.",
+          );
+          return;
+        }
+        if (!graph[srcCity] || !graph[dstCity]) {
+          showMsg("error", "One or both cities have no connections.");
+          return;
+        }
+
+        stopAnim();
+        currentPath = [];
+        currentVisited = [];
+        const fns = { dijkstra, bfs, dfs, astar };
+
+        // Performance tracking
+        const t0 = performance.now();
+        const r = fns[selectedAlgo](srcCity, dstCity);
+        const elapsed = performance.now() - t0;
+
+        if (!r.path.length) {
+          showMsg(
+            "error",
+            `No path found between ${srcCity} and ${dstCity}. They may be disconnected.`,
+          );
+          setStatus("No path found", "#f87171");
+          return;
+        }
+
+        currentPath = r.path;
+        animSteps = r.steps;
+        animIdx = 0;
+
+        // Run all for comparison (with perf)
+        const perfData = {};
+        for (const [k, fn] of Object.entries({ dijkstra, bfs, dfs, astar })) {
+          const t = performance.now();
+          const res = fn(srcCity, dstCity);
+          perfData[k] = { ...res, time: performance.now() - t };
+        }
+        const algoKeyMap = {
+          dijkstra: "Dijkstra's",
+          bfs: "BFS",
+          dfs: "DFS",
+          astar: "A*",
+        };
+        allResults = {};
+        for (const [k, v] of Object.entries(perfData))
+          allResults[algoKeyMap[k]] = v;
+
+        if (animMode === "instant") {
+          draw(
+            r.steps[r.steps.length - 1]?.visitedEdges || [],
+            getPathEdges(r.path),
+          );
+          renderResults(r, elapsed);
+          setStatus(
+            `Path: ${r.path.length} cities · ${Math.round(r.dist).toLocaleString()} km`,
+          );
+          updateFrontierUI([], []);
+          updateHeuristicUI({});
+        } else {
+          setStatus("Animated mode — press Play");
+          renderResults(r, elapsed);
+          updateAnimControls();
+        }
+      }
+
+      // ═══════════════════════════════════════════
+      //  ANIMATION CONTROLS
+      // ═══════════════════════════════════════════
+      function setMode(m) {
+        animMode = m;
+        document
+          .getElementById("modeInstant")
+          .classList.toggle("active", m === "instant");
+        document
+          .getElementById("modeAnim")
+          .classList.toggle("active", m === "animated");
+        document.getElementById("animControls").style.display =
+          m === "animated" ? "block" : "none";
+        stopAnim();
+      }
+
+      function updateSpeed(v) {
+        animSpeed = parseInt(v);
+        document.getElementById("speedLabel").textContent = v;
+      }
+
+      function getAnimDelay() {
+        return Math.round(800 / animSpeed);
+      }
+
+      function animPlay() {
+        if (animPlaying || animIdx >= animSteps.length) return;
+        animPlaying = true;
+        document.getElementById("btnPlay").disabled = true;
+        document.getElementById("btnPause").disabled = false;
+        playFrame();
+      }
+
+      function playFrame() {
+        if (!animPlaying || animIdx >= animSteps.length) {
+          if (animIdx >= animSteps.length) {
+            draw(
+              animSteps[animSteps.length - 1]?.visitedEdges || [],
+              getPathEdges(currentPath),
+            );
+            setStatus(`Done · ${Math.round(currentPath.length)} cities`);
+          }
+          animPlaying = false;
+          document.getElementById("btnPlay").disabled = false;
+          document.getElementById("btnPause").disabled = true;
+          return;
+        }
+        applyStep(animIdx);
+        animIdx++;
+        document.getElementById("stepCounter").textContent =
+          `Step ${animIdx}/${animSteps.length}`;
+        animTimerId = setTimeout(playFrame, getAnimDelay());
+      }
+
+      function animPause() {
+        animPlaying = false;
+        clearTimeout(animTimerId);
+        document.getElementById("btnPlay").disabled = false;
+        document.getElementById("btnPause").disabled = true;
+      }
+
+      function animStep() {
+        if (animIdx >= animSteps.length) return;
+        stopAnim();
+        applyStep(animIdx);
+        animIdx++;
+        document.getElementById("stepCounter").textContent =
+          `Step ${animIdx}/${animSteps.length}`;
+      }
+
+      function applyStep(idx) {
+        const s = animSteps[idx];
+        if (!s) return;
+        const frontierSet = new Set(s.frontier.map((f) => f.node));
+        draw(s.visitedEdges, [], s.current, frontierSet, s.visSet || new Set());
+        setStatus(`Visiting: ${s.current}`, "#fbbf24");
+        if (showFrontierFlag) updateFrontierUI(s.frontier, s.current);
+        if (showHeuristicFlag && s.heuristicData)
+          updateHeuristicUI(s.heuristicData);
+      }
+
+      function stopAnim() {
+        clearTimeout(animTimerId);
+        animPlaying = false;
+        if (document.getElementById("btnPlay"))
+          document.getElementById("btnPlay").disabled = false;
+        if (document.getElementById("btnPause"))
+          document.getElementById("btnPause").disabled = true;
+      }
+
+      function updateAnimControls() {
+        document.getElementById("btnPlay").disabled = false;
+        document.getElementById("btnPause").disabled = true;
+        document.getElementById("stepCounter").textContent =
+          `Step 0/${animSteps.length}`;
+      }
+
+      // ═══════════════════════════════════════════
+      //  FRONTIER & HEURISTIC UI
+      // ═══════════════════════════════════════════
+      function toggleFrontier() {
+        showFrontierFlag = document.getElementById("showFrontier").checked;
+        document.getElementById("frontierPanel").style.display =
+          showFrontierFlag ? "block" : "none";
+      }
+
+      function toggleHeuristic() {
+        showHeuristicFlag = document.getElementById("showHeuristic").checked;
+        document.getElementById("heuristicPanel").style.display =
+          showHeuristicFlag && selectedAlgo === "astar" ? "block" : "none";
+      }
+
+      function updateFrontierUI(frontier, current) {
+        const el = document.getElementById("frontierList");
+        const algoLabel = {
+          dijkstra: "Priority Queue",
+          bfs: "Queue",
+          dfs: "Stack",
+          astar: "Open Set",
+        };
+        document.querySelector("#frontierPanel .fp-title").textContent =
+          algoLabel[selectedAlgo] || "Frontier";
+        el.innerHTML =
+          frontier
+            .slice(0, 8)
+            .map(
+              (f) => `
+    <div class="fp-item ${f.node === current ? "current" : ""}">
+      <div class="fp-dot" style="background:${f.node === current ? "#fbbf24" : "#f472b6"}"></div>
+      <span>${f.node}</span>
+      ${f.val !== null ? `<span style="margin-left:auto;color:var(--text3)">${f.val}</span>` : ""}
+    </div>`,
+            )
+            .join("") ||
+          '<div style="color:var(--text3);font-size:.6rem">Empty</div>';
+      }
+
+      function updateHeuristicUI(data) {
+        const el = document.getElementById("heuristicList");
+        const entries = Object.entries(data).slice(0, 6);
+        el.innerHTML =
+          entries
+            .map(
+              ([city, v]) => `
+    <div class="hp-row">
+      <span class="hp-city">${city}</span><br>
+      <span class="hp-g">g=${v.g}</span> <span class="hp-h">h=${v.h}</span> <span class="hp-f">f=${v.f}</span>
+    </div>`,
+            )
+            .join("") ||
+          '<div style="color:var(--text3);font-size:.6rem">No data</div>';
+      }
+
+      // ═══════════════════════════════════════════
+      //  RESULTS RENDER
+      // ═══════════════════════════════════════════
+      const algoColors = {
+        "Dijkstra's": "#4f9eff",
+        BFS: "#34d399",
+        DFS: "#fbbf24",
+        "A*": "#a78bfa",
+      };
+      const algoNames = {
+        dijkstra: "Dijkstra's",
+        bfs: "BFS",
+        dfs: "DFS",
+        astar: "A*",
+      };
+      const algoInfo = {
+        "Dijkstra's": {
+          time: "O((V+E) log V)",
+          space: "O(V)",
+          optimal: true,
+          desc: "Explores nodes in order of accumulated cost. Guarantees shortest path in weighted graphs with non-negative edges.",
+          use: "Use when edge weights vary and you need the guaranteed shortest path.",
+        },
+        BFS: {
+          time: "O(V+E)",
+          space: "O(V)",
+          optimal: false,
+          desc: "Explores all nodes level by level (breadth-first). Guarantees fewest hops but ignores edge weights.",
+          use: "Use for unweighted graphs or when minimizing number of stops matters.",
+        },
+        DFS: {
+          time: "O(V+E)",
+          space: "O(V)",
+          optimal: false,
+          desc: "Dives deep along one path before backtracking. Fast but does not guarantee shortest path.",
+          use: "Use for reachability checks, maze solving, or when any path is acceptable.",
+        },
+        "A*": {
+          time: "O(E log V)",
+          space: "O(V)",
+          optimal: true,
+          desc: "Combines Dijkstra's cost with a heuristic estimate (h(n)) to target the goal efficiently. Explores far fewer nodes.",
+          use: "Use when you have a good heuristic (e.g., geographic distance). Fastest optimal algorithm.",
+        },
+      };
+
+      function renderComplexityPanel(algo) {
+        const panel = document.getElementById("resultPanel");
+        panel.querySelectorAll(".complexity-panel").forEach((e) => e.remove());
+        const info = algoInfo[algo];
+        const div = document.createElement("div");
+        div.className = "complexity-panel";
+        div.innerHTML = `
+    <div class="cp-algo-name" style="color:${algoColors[algo]}">${algo}</div>
+    <div class="cp-row">
+      <span class="cp-badge cp-time">Time: ${info.time}</span>
+      <span class="cp-badge cp-space">Space: ${info.space}</span>
+      <span class="cp-badge ${info.optimal ? "cp-optimal" : "cp-notoptimal"}">${info.optimal ? "✓ Optimal" : "✗ Not optimal"}</span>
+    </div>
+    <div class="cp-desc">${info.desc}</div>
+    <div class="cp-use">→ ${info.use}</div>
+  `;
+        panel.insertBefore(div, panel.firstChild);
+      }
+
+      function renderResults(mainResult, elapsed) {
+        const panel = document.getElementById("resultPanel");
+        panel
+          .querySelectorAll(".path-card,.comparison-section")
+          .forEach((e) => e.remove());
+        document.getElementById("emptyMsg").style.display = "none";
+
+        const algo = algoNames[selectedAlgo];
+        renderComplexityPanel(algo);
+
+        const isOptimal =
+          allResults &&
+          mainResult.dist ===
+            Math.min(
+              ...Object.values(allResults).map((r) =>
+                r.dist === undefined ? Infinity : r.dist,
+              ),
+            );
+        const card = document.createElement("div");
+        card.className = "path-card";
+        card.innerHTML = `
+    <div class="path-card-header">
+      <span class="path-card-title">${algo} Result</span>
+      <span class="dist-badge ${isOptimal ? "" : "suboptimal"}">${Math.round(mainResult.dist).toLocaleString()} km${isOptimal ? " ✓" : ""}</span>
+    </div>
+    <div class="path-cities">${mainResult.path.map((c) => `<span class="city-chip">${c}</span>`).join('<span class="arrow">→</span>')}</div>
+    <div class="path-stats">
+      <div class="stat-item"><div class="stat-label">DISTANCE</div><div class="stat-value">${Math.round(mainResult.dist).toLocaleString()} km</div></div>
+      <div class="stat-item"><div class="stat-label">HOPS</div><div class="stat-value">${mainResult.path.length - 1} cities</div></div>
+      <div class="stat-item"><div class="stat-label">NODES EXPLORED</div><div class="stat-value">${mainResult.explored}</div></div>
+      <div class="stat-item"><div class="stat-label">STEPS</div><div class="stat-value">${mainResult.steps?.length || "—"}</div></div>
+    </div>
+    <div class="perf-row">
+      <span class="perf-item">⏱ ${elapsed.toFixed(3)} ms</span>
+      <span class="perf-item">📍 ${mainResult.path.length} cities</span>
+      <span class="perf-item">🔍 ${mainResult.explored} visited</span>
+    </div>
+  `;
+        panel.appendChild(card);
+
+        if (!allResults) return;
+        const minDist = Math.min(
+          ...Object.values(allResults).map((r) => r.dist || Infinity),
+        );
+        const maxEx = Math.max(
+          ...Object.values(allResults).map((r) => r.explored || 0),
+        );
+        const compSec = document.createElement("div");
+        compSec.className = "comparison-section";
+        compSec.innerHTML = `
+    <div class="comparison-label">All Algorithms Comparison</div>
+    <table class="comp-table">
+      <thead><tr><th>Algorithm</th><th>Distance</th><th>Nodes</th><th>Hops</th><th>Time (ms)</th><th>Optimal</th></tr></thead>
+      <tbody id="compBody"></tbody>
+    </table>
+  `;
+        panel.appendChild(compSec);
+        const tbody = compSec.querySelector("#compBody");
+        for (const [name, r] of Object.entries(allResults)) {
+          const isBest = r.dist === minDist;
+          const tr = document.createElement("tr");
+          if (isBest) tr.className = "best-row";
+          const barPct = maxEx ? Math.round((r.explored / maxEx) * 100) : 0;
+          tr.innerHTML = `
+      <td style="color:${algoColors[name]};font-weight:500">${name}${isBest ? '<span class="winner-star">✓</span>' : ""}</td>
+      <td>${Math.round(r.dist || 0).toLocaleString()} km</td>
+      <td class="bar-cell">${r.explored}<div class="bar-wrap"><div class="bar-fill" style="width:${barPct}%;background:${algoColors[name]}"></div></div></td>
+      <td>${r.path?.length > 1 ? r.path.length - 1 : "—"}</td>
+      <td style="color:var(--teal)">${r.time?.toFixed(3) || "—"}</td>
+      <td style="color:${algoInfo[name]?.optimal ? "var(--green)" : "var(--text3)"}">${algoInfo[name]?.optimal ? "Yes" : "No"}</td>
+    `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      function showMsg(type, text) {
+        const panel = document.getElementById("resultPanel");
+        document.getElementById("emptyMsg").style.display = "none";
+        panel.querySelectorAll(".msg-box").forEach((e) => e.remove());
+        const div = document.createElement("div");
+        div.className = `msg-box msg-${type}`;
+        div.innerHTML = `<span>${type === "error" ? "⚠" : "ℹ"}</span> ${text}`;
+        panel.insertBefore(div, panel.firstChild);
+      }
+
+      // ═══════════════════════════════════════════
+      //  RESET / UTILS
+      // ═══════════════════════════════════════════
+      function clearAnim() {
+        stopAnim();
+        currentPath = [];
+        currentVisited = [];
+        animSteps = [];
+        animIdx = 0;
+        draw();
+        document.getElementById("emptyMsg").style.display = "block";
+        document
+          .getElementById("resultPanel")
+          .querySelectorAll(
+            ".path-card,.comparison-section,.complexity-panel,.msg-box",
+          )
+          .forEach((e) => e.remove());
+        document.getElementById("stepCounter").textContent = "";
+        updateFrontierUI([], null);
+        updateHeuristicUI({});
+      }
+
+      function resetAll() {
+        clearAnim();
+        allResults = null;
+        setStatus("Ready");
+      }
+
+      function setStatus(msg, color = "var(--accent)") {
+        const el = document.getElementById("statusPill");
+        el.textContent = msg;
+        el.style.color = color;
+      }
+
+      // ═══════════════════════════════════════════
+      //  ZOOM / PAN
+      // ═══════════════════════════════════════════
+      function zoom(factor) {
+        zoomScale = Math.max(0.4, Math.min(3, zoomScale * factor));
+        draw(
+          currentPath.length ? animSteps[animIdx - 1]?.visitedEdges || [] : [],
+          currentPath.length ? getPathEdges(currentPath) : [],
+        );
+      }
+      function resetZoom() {
+        zoomScale = 1;
+        panX = 0;
+        panY = 0;
+        draw();
+      }
+
+      canvas.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          zoom(e.deltaY < 0 ? 1.1 : 0.91);
+        },
+        { passive: false },
+      );
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (e.button === 2 || e.shiftKey) {
+          isPanning = true;
+          panStart = { x: e.clientX - panX, y: e.clientY - panY };
+          canvas.style.cursor = "grabbing";
+        }
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        if (isPanning) {
+          panX = e.clientX - panStart.x;
+          panY = e.clientY - panStart.y;
+          draw(
+            currentPath.length
+              ? animSteps[Math.max(0, animIdx - 1)]?.visitedEdges || []
+              : [],
+            currentPath.length ? getPathEdges(currentPath) : [],
+          );
+        }
+        // Tooltip
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left,
+          my = e.clientY - rect.top;
+        let hit = null,
+          minD = Infinity;
+        for (const name in CITIES) {
+          const p = pos(name);
+          const d = Math.hypot(p.x - mx, p.y - my);
+          if (d < minD) {
+            minD = d;
+            hit = name;
+          }
+        }
+        const tt = document.getElementById("tooltip");
+        if (minD < 18 && hit) {
+          const conn = graph[hit]?.length || 0;
+          const inPath = currentPath.includes(hit);
+          tt.style.display = "block";
+          tt.style.left = e.clientX + 14 + "px";
+          tt.style.top = e.clientY - 10 + "px";
+          tt.innerHTML = `<strong>${hit}</strong> &nbsp;${conn} roads${inPath ? " · on path" : ""}`;
+          if (!isPanning) canvas.style.cursor = "pointer";
+        } else {
+          tt.style.display = "none";
+          if (!isPanning) canvas.style.cursor = "default";
+        }
+      });
+      canvas.addEventListener("mouseup", () => {
+        isPanning = false;
+        canvas.style.cursor = "default";
+      });
+      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+      canvas.addEventListener("click", (e) => {
+        if (isPanning) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left,
+          my = e.clientY - rect.top;
+        let hit = null,
+          minD = Infinity;
+        for (const name in CITIES) {
+          const p = pos(name);
+          const d = Math.hypot(p.x - mx, p.y - my);
+          if (d < minD) {
+            minD = d;
+            hit = name;
+          }
+        }
+        if (minD > 22 || !hit) return;
+        if (clickPhase === 0) {
+          srcCity = hit;
+          document.getElementById("srcSelect").value = hit;
+          clickPhase = 1;
+          setStatus(`Source: ${hit} — click destination`, "#fbbf24");
+        } else {
+          dstCity = hit;
+          document.getElementById("dstSelect").value = hit;
+          clickPhase = 0;
+          setStatus("Ready — click Find Path", "var(--accent)");
+        }
+        resetAll();
+        draw();
+      });
+
+      // ═══════════════════════════════════════════
+      //  SELECTS
+      // ═══════════════════════════════════════════
+      function populateSelects() {
+        const names = Object.keys(CITIES).sort();
+        ["srcSelect", "dstSelect"].forEach((id, i) => {
+          const sel = document.getElementById(id);
+          sel.innerHTML = names
+            .map(
+              (n) =>
+                `<option value="${n}" ${n === (i === 0 ? srcCity : dstCity) ? "selected" : ""}>${CITIES[n].full || n}</option>`,
+            )
+            .join("");
+        });
+        document.getElementById("srcSelect").onchange = (e) => {
+          srcCity = e.target.value;
+          resetAll();
+          draw();
+          updateAlgoPanel();
+        };
+        document.getElementById("dstSelect").onchange = (e) => {
+          dstCity = e.target.value;
+          resetAll();
+          draw();
+        };
+        // Real map selects
+        populateRMSelects();
+        // Custom edge selects
+        populateEdgeSelects();
+      }
+
+      function swapCities() {
+        [srcCity, dstCity] = [dstCity, srcCity];
+        document.getElementById("srcSelect").value = srcCity;
+        document.getElementById("dstSelect").value = dstCity;
+        resetAll();
+        draw();
+      }
+
+      document.querySelectorAll(".algo-btn").forEach((btn) => {
+        btn.onclick = () => {
+          document
+            .querySelectorAll(".algo-btn")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          selectedAlgo = btn.dataset.algo;
+          updateAlgoPanel();
+          // Show/hide heuristic panel for A*
+          if (showHeuristicFlag)
+            document.getElementById("heuristicPanel").style.display =
+              selectedAlgo === "astar" ? "block" : "none";
+        };
+      });
+
+      function updateAlgoPanel() {
+        const panel = document.getElementById("resultPanel");
+        panel.querySelectorAll(".complexity-panel").forEach((e) => e.remove());
+        if (allResults) renderComplexityPanel(algoNames[selectedAlgo]);
+      }
+
+      // ═══════════════════════════════════════════
+      //  TOP TABS
+      // ═══════════════════════════════════════════
+      document.querySelectorAll(".top-tab").forEach((tab) => {
+        tab.onclick = () => {
+          document
+            .querySelectorAll(".top-tab")
+            .forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          document
+            .querySelectorAll(".tab-panel")
+            .forEach((p) => p.classList.remove("active"));
+          document
+            .getElementById("tab-" + tab.dataset.tab)
+            .classList.add("active");
+          if (tab.dataset.tab === "realmap") initLeaflet();
+          if (tab.dataset.tab === "testcases") initTestCases();
+          if (tab.dataset.tab === "graph") setTimeout(resize, 50);
+        };
+      });
+
+      // ═══════════════════════════════════════════
+      //  LEAFLET REAL MAP
+      // ═══════════════════════════════════════════
+      let leafletMap = null,
+        leafletLayers = [];
+      function initLeaflet() {
+        document.getElementById("mapView").style.display = "flex";
+        if (leafletMap) return;
+        leafletMap = L.map("leafletMap").setView([22, 82], 5);
+        L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          { attribution: "© CartoDB", maxZoom: 18 },
+        ).addTo(leafletMap);
+
+        // Add all city markers
+        for (const [name, c] of Object.entries(CITIES)) {
+          if (!c.lat) continue;
+          const marker = L.circleMarker([c.lat, c.lon], {
+            radius: 6,
+            fillColor: "#4f9eff",
+            color: "#0a0e1a",
+            weight: 2,
+            fillOpacity: 0.85,
+          })
+            .addTo(leafletMap)
+            .bindPopup(
+              `<b>${name}</b><br>${graph[name]?.length || 0} connections`,
+            );
+          leafletLayers.push(marker);
+        }
+        // Add edges
+        for (const [a, b, d] of EDGES) {
+          if (!CITIES[a]?.lat || !CITIES[b]?.lat) continue;
+          const line = L.polyline(
+            [
+              [CITIES[a].lat, CITIES[a].lon],
+              [CITIES[b].lat, CITIES[b].lon],
+            ],
+            { color: "rgba(255,255,255,0.08)", weight: 1 },
+          ).addTo(leafletMap);
+          leafletLayers.push(line);
+        }
+        populateRMSelects();
+      }
+
+      function populateRMSelects() {
+        const names = Object.keys(CITIES)
+          .filter((c) => CITIES[c].lat)
+          .sort();
+        ["rmSrc", "rmDst"].forEach((id, i) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = names
+            .map(
+              (n) =>
+                `<option value="${n}" ${n === (i === 0 ? "Delhi" : "Chennai") ? "selected" : ""}>${n}</option>`,
+            )
+            .join("");
+        });
+      }
+
+      function runRealMap() {
+        if (!leafletMap) return;
+        const src = document.getElementById("rmSrc").value;
+        const dst = document.getElementById("rmDst").value;
+        const algo = document.getElementById("rmAlgo").value;
+        if (src === dst) {
+          document.getElementById("rmStatus").textContent = "Same city!";
+          return;
+        }
+        const fns = { dijkstra, bfs, dfs, astar };
+        const r = fns[algo](src, dst);
+        document.getElementById("rmStatus").textContent = r.path.length
+          ? `${r.path.length} cities · ${Math.round(r.dist).toLocaleString()} km`
+          : "No path";
+
+        // Remove old path layers
+        leafletLayers
+          .filter((l) => l._isPath)
+          .forEach((l) => leafletMap.removeLayer(l));
+        leafletLayers = leafletLayers.filter((l) => !l._isPath);
+
+        if (!r.path.length) return;
+        const coords = r.path
+          .map((c) => [CITIES[c].lat, CITIES[c].lon])
+          .filter((c) => c[0]);
+        const pathLine = L.polyline(coords, {
+          color: "#f87171",
+          weight: 4,
+          opacity: 0.9,
+        });
+        pathLine._isPath = true;
+        pathLine.addTo(leafletMap);
+        leafletLayers.push(pathLine);
+
+        // Highlight path cities
+        r.path.forEach((city, i) => {
+          if (!CITIES[city]?.lat) return;
+          const m = L.circleMarker([CITIES[city].lat, CITIES[city].lon], {
+            radius: i === 0 || i === r.path.length - 1 ? 10 : 7,
+            fillColor:
+              i === 0
+                ? "#fbbf24"
+                : i === r.path.length - 1
+                  ? "#f87171"
+                  : "#34d399",
+            color: "#0a0e1a",
+            weight: 2,
+            fillOpacity: 0.95,
+          })
+            .addTo(leafletMap)
+            .bindPopup(`<b>${city}</b>`);
+          m._isPath = true;
+          leafletLayers.push(m);
+        });
+        leafletMap.fitBounds(pathLine.getBounds(), { padding: [30, 30] });
+      }
+
+      // ═══════════════════════════════════════════
+      //  TEST CASES
+      // ═══════════════════════════════════════════
+      const TEST_CASES = [
+        {
+          title: "North to South",
+          src: "Delhi",
+          dst: "Kochi",
+          desc: "Classic long-distance route",
+        },
+        {
+          title: "East to West",
+          src: "Kolkata",
+          dst: "Mumbai",
+          desc: "Crosses central India",
+        },
+        {
+          title: "Northeast to South",
+          src: "Guwahati",
+          dst: "Chennai",
+          desc: "Maximum graph traversal",
+        },
+        {
+          title: "Short Route",
+          src: "Mumbai",
+          dst: "Pune",
+          desc: "Shortest path in graph",
+        },
+        {
+          title: "Same City",
+          src: "Delhi",
+          dst: "Delhi",
+          desc: "Edge case: same src/dst",
+        },
+        {
+          title: "Border cities",
+          src: "Amritsar",
+          dst: "Kochi",
+          desc: "North to far south",
+        },
+      ];
+
+      function initTestCases() {
+        const container = document.getElementById("testCasesContainer");
+        container.innerHTML = "";
+        TEST_CASES.forEach((tc, i) => {
+          const div = document.createElement("div");
+          div.className = "test-case";
+          div.innerHTML = `
+      <div class="test-case-header">
+        <div class="test-case-title">${tc.title}</div>
+        <button class="test-run-btn" onclick="runTestCase(${i})">▶ Run All</button>
+      </div>
+      <div class="test-route">${tc.src} → ${tc.dst} <span style="color:var(--text3)">· ${tc.desc}</span></div>
+      <div id="tc-result-${i}"><div class="test-pending">Click "Run All" to execute</div></div>
+    `;
+          container.appendChild(div);
+        });
+      }
+
+      function runTestCase(i) {
+        const tc = TEST_CASES[i];
+        const fns = { dijkstra, bfs, dfs, astar };
+        const algoKeys = {
+          dijkstra: "Dijkstra's",
+          bfs: "BFS",
+          dfs: "DFS",
+          astar: "A*",
+        };
+        const container = document.getElementById(`tc-result-${i}`);
+
+        if (tc.src === tc.dst) {
+          container.innerHTML = `<div class="msg-box msg-warn">⚠ Same source and destination — edge case handled.</div>`;
+          return;
+        }
+        if (!CITIES[tc.src] || !CITIES[tc.dst]) {
+          container.innerHTML = `<div class="msg-box msg-error">⚠ City not in graph.</div>`;
+          return;
+        }
+
+        const results = {};
+        for (const [k, fn] of Object.entries(fns)) {
+          const t = performance.now();
+          const r = fn(tc.src, tc.dst);
+          results[algoKeys[k]] = { ...r, time: performance.now() - t };
+        }
+
+        const minDist = Math.min(
+          ...Object.values(results).map((r) => r.dist || Infinity),
+        );
+        let html = '<div class="test-results-grid">';
+        for (const [name, r] of Object.entries(results)) {
+          const isBest = r.dist === minDist;
+          html += `
+      <div class="test-stat" style="border:1px solid ${isBest ? "rgba(52,211,153,.2)" : "rgba(255,255,255,.05)"}">
+        <div class="test-stat-label" style="color:${algoColors[name]}">${name}</div>
+        <div class="test-stat-val">${r.path?.length ? Math.round(r.dist).toLocaleString() + " km" : "No path"}</div>
+        <div style="font-size:.56rem;color:var(--text3);margin-top:2px">${r.explored} nodes · ${r.time?.toFixed(3)}ms${isBest ? " ✓" : ""}</div>
+      </div>`;
+        }
+        html += "</div>";
+
+        const bestR = results["Dijkstra's"];
+        if (bestR?.path?.length) {
+          html += `<div style="margin-top:6px;font-size:.62rem;color:var(--text2)">Best path: ${bestR.path.map((c) => `<span style="color:var(--accent2)">${c}</span>`).join(" → ")}</div>`;
+        }
+        container.innerHTML = html;
+
+        // Also load in main view
+        srcCity = tc.src;
+        dstCity = tc.dst;
+        document.getElementById("srcSelect").value = srcCity;
+        document.getElementById("dstSelect").value = dstCity;
+      }
+
+      // ═══════════════════════════════════════════
+      //  CUSTOM GRAPH
+      // ═══════════════════════════════════════════
+      function addCustomCity() {
+        const name = document.getElementById("newCityName").value.trim();
+        if (!name) {
+          showCustomMsg("error", "Enter a city name.");
+          return;
+        }
+        if (CITIES[name]) {
+          showCustomMsg("warn", `${name} already exists.`);
+          return;
+        }
+        // Place at center with slight random offset
+        CITIES[name] = {
+          x: 0.4 + Math.random() * 0.2,
+          y: 0.4 + Math.random() * 0.2,
+          full: name,
+        };
+        customCities[name] = true;
+        graph = buildGraph();
+        populateSelects();
+        refreshCustomLists();
+        draw();
+        document.getElementById("newCityName").value = "";
+        showCustomMsg("success", `${name} added!`);
+      }
+
+      function addCustomEdge() {
+        const a = document.getElementById("edgeA").value;
+        const b = document.getElementById("edgeB").value;
+        const d = parseInt(document.getElementById("edgeDist").value);
+        if (a === b) {
+          showCustomMsg("error", "Cannot connect a city to itself.");
+          return;
+        }
+        if (!d || d < 1) {
+          showCustomMsg("error", "Enter a valid distance.");
+          return;
+        }
+        if (
+          EDGES.find(
+            (e) => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a),
+          )
+        ) {
+          showCustomMsg("warn", "Edge already exists.");
+          return;
+        }
+        EDGES.push([a, b, d]);
+        customEdges.push([a, b, d]);
+        graph = buildGraph();
+        refreshCustomLists();
+        draw();
+        showCustomMsg("success", `Edge ${a} ↔ ${b} (${d}km) added!`);
+      }
+
+      function resetCustom() {
+        for (const c of Object.keys(customCities)) delete CITIES[c];
+        for (const e of customEdges) {
+          const idx = EDGES.findIndex(
+            (x) => x[0] === e[0] && x[1] === e[1] && x[2] === e[2],
+          );
+          if (idx > -1) EDGES.splice(idx, 1);
+        }
+        customCities = {};
+        customEdges = [];
+        graph = buildGraph();
+        populateSelects();
+        refreshCustomLists();
+        draw();
+        showCustomMsg("info", "Custom additions reset.");
+      }
+
+      function refreshCustomLists() {
+        const cl = document.getElementById("customCityList");
+        cl.innerHTML =
+          Object.keys(customCities)
+            .map(
+              (c) => `
+    <div class="custom-city-item">
+      <span>${c}</span>
+      <span class="remove-btn" onclick="removeCustomCity('${c}')">✕</span>
+    </div>`,
+            )
+            .join("") ||
+          '<div style="font-size:.62rem;color:var(--text3);padding:4px 0">No custom cities</div>';
+
+        const el = document.getElementById("customEdgeList");
+        el.innerHTML =
+          customEdges
+            .map(
+              (e) => `
+    <div class="custom-city-item">
+      <span style="font-size:.62rem">${e[0]} ↔ ${e[1]} (${e[2]}km)</span>
+    </div>`,
+            )
+            .join("") ||
+          '<div style="font-size:.62rem;color:var(--text3);padding:4px 0">No custom edges</div>';
+
+        populateEdgeSelects();
+      }
+
+      function removeCustomCity(name) {
+        delete CITIES[name];
+        delete customCities[name];
+        EDGES = EDGES.filter((e) => e[0] !== name && e[1] !== name);
+        customEdges = customEdges.filter((e) => e[0] !== name && e[1] !== name);
+        graph = buildGraph();
+        populateSelects();
+        refreshCustomLists();
+        draw();
+      }
+
+      function populateEdgeSelects() {
+        const names = Object.keys(CITIES).sort();
+        ["edgeA", "edgeB"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = names
+            .map((n) => `<option value="${n}">${n}</option>`)
+            .join("");
+        });
+      }
+
+      function showCustomMsg(type, txt) {
+        const el = document.getElementById("customMsg");
+        el.className = `msg-box msg-${type}`;
+        el.textContent = txt;
+        el.style.display = "flex";
+        setTimeout(() => (el.style.display = "none"), 3000);
+      }
+
+      // ═══════════════════════════════════════════
+      //  INIT
+      // ═══════════════════════════════════════════
+      window.addEventListener("resize", () => {
+        if (document.getElementById("tab-graph").classList.contains("active"))
+          resize();
+      });
+
+      populateSelects();
+      resize();
+      setStatus("Ready");
+
+      // Show complexity panel on load
+      setTimeout(() => renderComplexityPanel("Dijkstra's"), 100);
+    </script>
+  </body>
+</html>
